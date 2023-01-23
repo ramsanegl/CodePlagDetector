@@ -46,7 +46,7 @@ def get_s3_bucket(bucket_name, region_name='us-east-1'):
     print("successful!\n")
     return s3.Bucket(bucket_name)
   except:
-    errorMsg = f"Failed to connect to s3 bucket: {bucket_name}"
+    errorMsg = "Failed to connect to s3 bucket: {}".format(bucket_name)
     logging.error(errorMsg)
     raise s3ConnectionError(errorMsg)
 
@@ -78,21 +78,28 @@ def download_files_with_prefix(bucket, prefix, rootDir='', silent=True):
   """
   # download the files from the bucket with prefix CodePlagiarism
   for obj in bucket.objects.filter(Prefix=prefix):
-    destFilePath = Path.home().joinpath(rootDir, obj.key)
+    destFilePath = Path(os.path.expanduser('~')).joinpath(rootDir, obj.key)
     # create all the necessary parent directories if not present
-    Path(destFilePath).parent.mkdir(parents=True, exist_ok=True)
+    if not Path(destFilePath).parent.exists():
+      Path(destFilePath).parent.mkdir(parents=True)
+  
+    # client to download the file
+    client = boto3.client('s3')
     # if it is a file then download
     if obj.key[-1] != '/':
       if not Path.exists(destFilePath):
         if not silent:
           print('Downloading', obj.key, 'to', destFilePath)
-        bucket.download_file(obj.key, destFilePath)
+        # bucket.download_file(obj.key, destFilePath, destFilePath)
+        # The above thing is not working. So, using the client to download the file
+        client.download_file(bucket.name, obj.key, destFilePath.as_posix())
         # if it is a zip file then unzip it here itself
         if obj.key[-4:] == '.zip':
           # extracting abc/xyz.zip to abc/xyz folder
-          Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).mkdir(parents=True, exist_ok=True)
-          with zipfile.ZipFile(destFilePath, 'r') as zip_ref:
-            zip_ref.extractall(Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]))
+          if Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).exists():
+            Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).mkdir(parents=True)
+          with zipfile.ZipFile(destFilePath.as_posix(), 'r') as zip_ref:
+            zip_ref.extractall(Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).as_posix())
       else:
         if not silent:
           print('Already downloaded', obj.key)

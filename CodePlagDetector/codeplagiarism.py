@@ -5,6 +5,7 @@ from collections import defaultdict
 from tqdm import tqdm
 from pathlib import Path
 import json
+import os
 
 from copydetect import CopyDetector, compare_files
 # imports from CodePlagDetector.py
@@ -66,7 +67,7 @@ class CodePlagiarismDetector:
     folder with the same name as the zip file.
     """
     if len(list(self.bucket.objects.filter(Prefix=self.prefix).limit(1))) == 0:
-      errorMsg = f"No files found in the bucket with prefix: {self.prefix}"
+      errorMsg = "No files found in the bucket with prefix: {}".format(self.prefix)
       logging.error(errorMsg)
       raise NoFilesFoundError(errorMsg)
     # download and unzip the files, if there are any .zip files (only .zip is supported)
@@ -82,8 +83,8 @@ class CodePlagiarismDetector:
 
     # create the detector object with appropriate params 
     self.detector = CopyDetector(
-      boilerplate_dirs=[Path.home().joinpath(self.rootDir, self.prefix, 'boilerplate').as_posix()],
-      test_dirs=[Path.home().joinpath(self.rootDir, self.prefix, 'submissions').as_posix()],
+      boilerplate_dirs=[Path(os.path.expanduser('~')).joinpath(self.rootDir, self.prefix, 'boilerplate').as_posix()],
+      test_dirs=[Path(os.path.expanduser('~')).joinpath(self.rootDir, self.prefix, 'submissions').as_posix()],
       noise_t=self.noise_t,
       guarantee_t=self.guarantee_t,
       display_t=self.display_t,
@@ -117,12 +118,13 @@ class CodePlagiarismDetector:
     
     # create the report directory inside the prefix folder in the root directory.
     reportDir = "Reports"
-    Path.home().joinpath(self.rootDir, self.prefix, reportDir).mkdir(parents=True, exist_ok=True)
+    if not Path(os.path.expanduser('~')).joinpath(self.rootDir, self.prefix, reportDir).exists():
+      Path(os.path.expanduser('~')).joinpath(self.rootDir, self.prefix, reportDir).mkdir(parents=True)
 
-    print(f"{time.time()-start_time:6.2f}: Beginning code comparison")
+    print("{:6.2f}: Beginning code comparison".format(time.time()-start_time))
     for student, test_files in tqdm(test_files_student_dict.items(), bar_format='   {l_bar}{bar}{r_bar}'):
       result_dict = defaultdict(list)
-      studentReportPath = Path.home().joinpath(self.rootDir, self.prefix, reportDir, f"{student}.json")
+      studentReportPath = Path(os.path.expanduser('~')).joinpath(self.rootDir, self.prefix, reportDir, "{}.json".format(student))
       # if the report has already been generated, for the student, then skip
       if studentReportPath.exists(): continue
       for test_f in test_files:
@@ -158,12 +160,12 @@ class CodePlagiarismDetector:
               'ref_file_slices': slices2
             })
       # print(f'writing to {reportDir}/{student}.json')
-      with open(studentReportPath, 'w') as f:
+      with open(studentReportPath.as_posix(), 'w') as f:
         json.dump(result_dict, f, indent=2, cls=NumpyEncoder)
-    print(f"{time.time()-start_time:6.2f}: Code comparison completed")
+    print("{:6.2f}: Code comparison completed".format(time.time()-start_time))
     # Uploading the files in the reportDir to the bucket
     if not self.silent:
-      print(f'Results saved to {Path.home().joinpath(self.rootDir, self.prefix, reportDir)} folder')
+      print('Results saved to {} folder'.format(Path(os.path.expanduser('~')).joinpath(self.rootDir, self.prefix, reportDir)))
 
   def clean_up(self):
     """
