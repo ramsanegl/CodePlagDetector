@@ -83,8 +83,6 @@ def download_files_with_prefix(bucket, prefix, rootDir='', silent=True):
     if not Path(destFilePath).parent.exists():
       Path(destFilePath).parent.mkdir(parents=True)
   
-    # client to download the file
-    client = boto3.client('s3')
     # if it is a file then download
     if obj.key[-1] != '/':
       if not Path.exists(destFilePath):
@@ -92,7 +90,7 @@ def download_files_with_prefix(bucket, prefix, rootDir='', silent=True):
           print('Downloading', obj.key, 'to', destFilePath)
         # bucket.download_file(obj.key, destFilePath, destFilePath)
         # The above thing is not working. So, using the client to download the file
-        client.download_file(bucket.name, obj.key, destFilePath.as_posix())
+        bucket.meta.client.download_file(bucket.name, obj.key, destFilePath.as_posix())
         # if it is a zip file then unzip it here itself
         if obj.key[-4:] == '.zip':
           # extracting abc/xyz.zip to abc/xyz folder

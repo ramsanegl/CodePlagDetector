@@ -167,6 +167,35 @@ class CodePlagiarismDetector:
     if not self.silent:
       print('Results saved to {} folder'.format(Path(os.path.expanduser('~')).joinpath(self.rootDir, self.prefix, reportDir)))
 
+
+   # upload the Reports folder to the bucket
+  def upload_reports(self):
+    """
+    Used to upload the reports to the bucket. This assumes that the reports are
+    generated and stored in the Reports folder inside "~/<rootDir>/<prefix>"
+    as json files.
+
+    It will upload all the files inside the bucket with the key as
+    "<prefix>/Reports/<file_name>".
+    """
+    # upload the files to the bucket
+    report_dir = Path(os.path.expanduser('~')).joinpath(self.rootDir, self.prefix, 'Reports')
+    # walk through the report directory and get all the report files
+    report_files = [f for f in report_dir.rglob('*.json')]
+    if len(report_files) == 0:
+      print("No reports in the {} folder.".format(report_dir))
+      return
+    if not self.silent:
+      print("Uploading {} reports to the bucket".format(len(report_files)))
+    
+    start_time = time.time()
+    print("\n  0.00: Uploading reports to the bucket")
+    for report_file in tqdm(report_files, bar_format='   {l_bar}{bar}{r_bar}'):
+      s3_key = "{}/Reports/{}".format(self.prefix, report_file.name)
+      self.bucket.meta.client.upload_file(report_file.as_posix(), self.bucket.name, s3_key)
+    print("{:6.2f}: Reports uploaded to the bucket".format(time.time()-start_time))
+
+
   def clean_up(self):
     """
     Used to cleanup the resources like deleting files etc.. But for now we are just
