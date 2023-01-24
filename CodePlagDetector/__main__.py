@@ -77,6 +77,8 @@ def main():
     display_t=args.display_threshold, same_name_only=args.same_name_only)
     detector.initialize()
     detector.run()
+    detector.upload_reports()
+
   except Exception as e:
     raise e
   finally:

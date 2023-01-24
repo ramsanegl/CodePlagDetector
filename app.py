@@ -55,6 +55,7 @@ def plagiarism_checker():
     )
     cp_detector.initialize()
     cp_detector.run()
+    cp_detector.upload_reports()
 
   except Exception as e:  # later we can make use of specific exceptions if needed
     return make_response({'status': 'Error', 'message': str(e)}, 400)
