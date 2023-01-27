@@ -52,7 +52,7 @@ def get_s3_bucket(bucket_name, region_name='us-east-1'):
 
 
 # download the files
-def download_files_with_prefix(bucket, prefix, rootDir='', silent=True):
+def download_files_with_prefix(bucket, prefix, rootDir='', silent=True, fsd=True):
   """
   This function downloads all the files from the bucket with the given prefix
   to the destDir directory inside the home directory(home/CodePlagDetector/{destDir}/{obj.key}).
@@ -84,15 +84,20 @@ def download_files_with_prefix(bucket, prefix, rootDir='', silent=True):
     # if it is a file then download
     if obj.key[-1] != '/':
       if not Path.exists(destFilePath):
-        if not silent:
-          print('Downloading', obj.key, 'to', destFilePath)
-        bucket.download_file(obj.key, destFilePath)
-        # if it is a zip file then unzip it here itself
-        if obj.key[-4:] == '.zip':
-          # extracting abc/xyz.zip to abc/xyz folder
-          Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).mkdir(parents=True, exist_ok=True)
-          with zipfile.ZipFile(destFilePath, 'r') as zip_ref:
-            zip_ref.extractall(Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]))
+        # if fsd, then download only zip files
+        if fsd:
+          if obj.key[-4:] == '.zip':
+            if not silent:
+              print('Downloading', obj.key, 'to', destFilePath)
+            bucket.download_file(obj.key, destFilePath)
+            # extracting abc/xyz.zip to abc/xyz folder
+            Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(destFilePath, 'r') as zip_ref:
+              zip_ref.extractall(Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]))
+        else:
+          if not silent:
+            print('Downloading', obj.key, 'to', destFilePath)
+          bucket.download_file(obj.key, destFilePath)
       else:
         if not silent:
           print('Already downloaded', obj.key)

@@ -62,8 +62,12 @@ def main():
                       metavar="GUARANTEE-THRESHOLD", help="guarantee threshold (default: 25)")
   parser.add_argument("-d", "--display-threshold", default=defaults.DISPLAY_THRESHOLD, type=threshold,
                       metavar="DISPLAY-THRESHOLD", help="display threshold (default: 0.33)")
-  parser.add_argument("-s", "--same-name-only", default=defaults.SAME_NAME_ONLY,  type=str2bool,
+  parser.add_argument("-sn", "--same-name-only", default=defaults.SAME_NAME_ONLY,  type=str2bool,
                       metavar="SAME-NAME-ONLY", help="same name only (default: True)")
+  parser.add_argument("-fsd", "--fsd", default=defaults.FSD, type=str2bool,
+                      metavar="FSD", help="Full stack assignment (default: True)")
+  parser.add_argument("-s", "--silent", default=True, type=str2bool,
+                      metavar="SILENT" ,help="To output logs to terminal")
 
   args = parser.parse_args()
 
@@ -74,7 +78,8 @@ def main():
   try:
     detector = CodePlagiarismDetector(args.bucket_name, args.prefix,
     noise_t=args.noise_threshold, guarantee_t=args.guarantee_threshold,
-    display_t=args.display_threshold, same_name_only=args.same_name_only)
+    display_t=args.display_threshold, same_name_only=args.same_name_only,
+    fsd=args.fsd, extensions=args.extensions)
     detector.initialize()
     detector.run()
     detector.upload_reports()

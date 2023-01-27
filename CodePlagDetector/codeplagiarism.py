@@ -37,12 +37,13 @@ class CodePlagiarismDetector:
                       avoid this if the files are not named properly. Default is True.
     display_t      :  The similarity threshold to flag plagiarism. Default is 0.33
     silent         :  If True, then it will not print any logs. Default is True.
+    fsd            :  If True, then we will download only zip files.
   """
 
 
   def __init__(self, bucket_name: str, prefix: str, rootDir='CodePlagDetector',
                   extensions = ['.java'], noise_t = 25, guarantee_t = 25,
-                    same_name_only=True, display_t=0.33, silent=True):
+                  same_name_only=True, display_t=0.33, silent=True, fsd=True):
     """
     Connect to S3 bucket and initialize the detector object with the given params
     """
@@ -55,6 +56,7 @@ class CodePlagiarismDetector:
     self.silent = silent
     self.display_t = display_t
     self.extensions = extensions
+    self.fsd = fsd
     self.detector = None
   
 
@@ -70,7 +72,8 @@ class CodePlagiarismDetector:
       logging.error(errorMsg)
       raise NoFilesFoundError(errorMsg)
     # download and unzip the files, if there are any .zip files (only .zip is supported)
-    download_files_with_prefix(self.bucket, prefix=self.prefix, rootDir=self.rootDir, silent=self.silent)
+    download_files_with_prefix(self.bucket, prefix=self.prefix, rootDir=self.rootDir,
+                              silent=self.silent, fsd=self.fsd)
   
 
   def initialize(self):
