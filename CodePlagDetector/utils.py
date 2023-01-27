@@ -52,7 +52,7 @@ def get_s3_bucket(bucket_name, region_name='us-east-1'):
 
 
 # download the files
-def download_files_with_prefix(bucket, prefix, rootDir='', silent=True):
+def download_files_with_prefix(bucket, prefix, rootDir='', silent=True, fsd=True):
   """
   This function downloads all the files from the bucket with the given prefix
   to the destDir directory inside the home directory(home/CodePlagDetector/{destDir}/{obj.key}).
@@ -86,18 +86,22 @@ def download_files_with_prefix(bucket, prefix, rootDir='', silent=True):
     # if it is a file then download
     if obj.key[-1] != '/':
       if not Path.exists(destFilePath):
-        if not silent:
-          print('Downloading', obj.key, 'to', destFilePath)
-        # bucket.download_file(obj.key, destFilePath, destFilePath)
-        # The above thing is not working. So, using the client to download the file
-        bucket.meta.client.download_file(bucket.name, obj.key, destFilePath.as_posix())
-        # if it is a zip file then unzip it here itself
-        if obj.key[-4:] == '.zip':
-          # extracting abc/xyz.zip to abc/xyz folder
-          if Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).exists():
-            Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).mkdir(parents=True)
-          with zipfile.ZipFile(destFilePath.as_posix(), 'r') as zip_ref:
-            zip_ref.extractall(Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).as_posix())
+        if fsd:
+          if obj.key[-4:] == '.zip':
+            if not silent:
+              print('Downloading', obj.key, 'to', destFilePath)
+            # bucket.download_file(obj.key, destFilePath, destFilePath)
+            # The above thing is not working. So, using the client to download the file
+            bucket.meta.client.download_file(bucket.name, obj.key, destFilePath.as_posix())
+            # extracting abc/xyz.zip to abc/xyz folder
+            if Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).exists():
+              Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).mkdir(parents=True)
+            with zipfile.ZipFile(destFilePath.as_posix(), 'r') as zip_ref:
+              zip_ref.extractall(Path(destFilePath).parent.joinpath(Path(destFilePath).name[:-4]).as_posix())
+        else:
+          if not silent:
+            print('Downloading', obj.key, 'to', destFilePath)
+          bucket.meta.client.download_file(bucket.name, obj.key, destFilePath.as_posix())
       else:
         if not silent:
           print('Already downloaded', obj.key)
