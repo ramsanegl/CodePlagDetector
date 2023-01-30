@@ -77,7 +77,9 @@ def main():
   # handle extensions argument
   if args.extensions:
     args.extensions = [ext.strip() for ext in args.extensions.strip().split(',')]
-
+  
+  # defining so that we can check in the finally block
+  detector = None
   try:
     detector = CodePlagiarismDetector(args.bucket_name, args.prefix,
     noise_t=args.noise_threshold, guarantee_t=args.guarantee_threshold,
@@ -89,8 +91,8 @@ def main():
   except Exception as e:
     raise e
   finally:
-    detector.clean_up()
-
+    if detector:
+      detector.clean_up()
 
 if __name__ == '__main__':
   main()
