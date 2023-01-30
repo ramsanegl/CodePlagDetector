@@ -5,9 +5,12 @@ Using this, we can run the code plagarism detector using
 """
 
 import argparse
+import sys
+import os
 
-from .codeplagiarism import CodePlagiarismDetector
-from . import defaults
+# This is assuming that the github folder is in the home directory
+sys.path.append(os.path.expanduser('~/CodePlagDetector'))
+from CodePlagDetector import CodePlagiarismDetector, defaults
 
 DEFAULT_BUCKET_NAME = 'lti-development-bucket'
 DEFAULT_PREFIX = 'CodePlagiarism'
@@ -48,10 +51,10 @@ def main():
   parser = argparse.ArgumentParser(
     prog="CodePlagDetector", formatter_class=argparse.ArgumentDefaultsHelpFormatter
   )
-  parser.add_argument("-b", "--bucket-name", default=DEFAULT_BUCKET_NAME,
+  parser.add_argument("-b", "--bucket-name", required=True,
                       metavar="BUCKET-NAME", help="name of the bucket where the files are stored"
                       " (default: lti-development-bucket)")
-  parser.add_argument("-p", "--prefix", default=DEFAULT_PREFIX, type=str,
+  parser.add_argument("-p", "--prefix", type=str, required=True,
                       metavar="PREFIX", help="prefix of the bucket where the submissions and"
                       " boilerplate files are stored (default: CodePlagiarism)")
   parser.add_argument("-e", "--extensions", default=defaults.EXTENSIONS,
@@ -64,7 +67,7 @@ def main():
                       metavar="DISPLAY-THRESHOLD", help="display threshold (default: 0.33)")
   parser.add_argument("-sn", "--same-name-only", default=defaults.SAME_NAME_ONLY,  type=str2bool,
                       metavar="SAME-NAME-ONLY", help="same name only (default: True)")
-  parser.add_argument("-fsd", "--fsd", default=defaults.FSD, type=str2bool,
+  parser.add_argument("-fsd", "--fsd", type=str2bool, required=True,
                       metavar="FSD", help="Full stack assignment (default: True)")
   parser.add_argument("-s", "--silent", default=True, type=str2bool,
                       metavar="SILENT" ,help="To output logs to terminal")
