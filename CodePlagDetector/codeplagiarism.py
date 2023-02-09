@@ -5,11 +5,13 @@ from collections import defaultdict
 from tqdm import tqdm
 from pathlib import Path
 import json
+import re
 
 from copydetect import CopyDetector, compare_files
 # imports from CodePlagDetector.py
 from .utils import (download_files_with_prefix,
-  get_s3_bucket, NumpyEncoder
+  download_files_for_codeeval,
+  get_s3_bucket, NumpyEncoder, get_random_string
 )
 from .exceptions import NoFilesFoundError
 
@@ -23,8 +25,8 @@ class CodePlagiarismDetector:
   PARAMETERS
   ----------
     bucket_name    :  The name of the S3 bucket
-    prefix         :  The prefix of the files in the bucket(eg: AssignmentID). Otherwise,
-                      it will assume that the root folder is the prefix
+    sprefix        :  The prefix of where the submission files are stored in the bucket.
+    bprefix        :  The prefix of where the boilerplate files are stored in the bucket.
     rootDir        :  The root directory where the files will be downloaded to inside the home directory.
                       Default is CodePlagDetector
     extensions     :  The extensions of the files to be compared. Default is ['.java']
@@ -37,19 +39,23 @@ class CodePlagiarismDetector:
                       avoid this if the files are not named properly. Default is True.
     display_t      :  The similarity threshold to flag plagiarism. Default is 0.33
     silent         :  If True, then it will not print any logs. Default is True.
-    fsd            :  If True, then we will download only zip files.
+    fsd            :  If True, then we will download only zip files. Default is False
   """
 
 
-  def __init__(self, bucket_name: str, prefix: str, rootDir='CodePlagDetector',
+  def __init__(self, bucket_name: str, sprefix: str, bprefix:str, rootDir='CodePlagiarism/',
                   extensions = ['.java'], noise_t = 25, guarantee_t = 25,
-                  same_name_only=True, display_t=0.33, silent=True, fsd=True):
+                  same_name_only=True, display_t=0.33, silent=True, fsd=False):
     """
     Connect to S3 bucket and initialize the detector object with the given params
     """
     self.bucket = get_s3_bucket(bucket_name)
-    self.prefix = prefix
-    self.rootDir = rootDir
+    self.sprefix = sprefix
+    self.bprefix = bprefix
+    # for rootDir, we are adding an additional folder so that we can maintain
+    # a separate folder for each scan
+    self.rootDir = rootDir + get_random_string(10)
+
     self.noise_t = noise_t
     self.guarantee_t = guarantee_t
     self.same_name_only = same_name_only
@@ -58,7 +64,27 @@ class CodePlagiarismDetector:
     self.extensions = extensions
     self.fsd = fsd
     self.detector = None
+    self.reportDir = "Reports"
+
+    self._validate_fields()
   
+
+  def _validate_fields(self):
+    """
+    validates different input params
+    """
+    if self.bucket is None:
+      raise ValueError("Bucket name cannot be None")
+    if self.sprefix is None:
+      raise ValueError("Submissions prefix cannot be None")
+    if self.bprefix is None:
+      raise ValueError("Boilerplate prefix cannot be None")
+    # adding the trailing slash if not present
+    if self.sprefix[-1] != '/':
+      self.sprefix += '/'
+    if self.bprefix[-1] != '/':
+      self.bprefix += '/'
+
 
   def download_files(self):
     """
@@ -67,15 +93,28 @@ class CodePlagiarismDetector:
     And if there is any zip file, then it's unzip them to the same folder to a
     folder with the same name as the zip file.
     """
-    if len(list(self.bucket.objects.filter(Prefix=self.prefix).limit(1))) == 0:
-      errorMsg = f"No files found in the bucket with prefix: {self.prefix}"
+    if len(list(self.bucket.objects.filter(Prefix=self.sprefix).limit(1))) == 0:
+      errorMsg = "No files found in the bucket with prefix: {}".format(self.sprefix)
       logging.error(errorMsg)
       raise NoFilesFoundError(errorMsg)
-    # download and unzip the files, if there are any .zip files (only .zip is supported)
-    download_files_with_prefix(self.bucket, prefix=self.prefix, rootDir=self.rootDir,
-                              silent=self.silent, fsd=self.fsd)
   
+    if len(list(self.bucket.objects.filter(Prefix=self.bprefix).limit(1))) == 0:
+      errorMsg = "No files found in the bucket with prefix: {}".format(self.prefix)
+      logging.error(errorMsg)
+      raise NoFilesFoundError(errorMsg)
+    
+    if self.fsd:
+      raise NotImplementedError("fsd is not implemented yet")
+      # download and unzip the files, if there are any .zip files (only .zip is supported)
+      # download_files_with_prefix(self.bucket, prefix=self.prefix, rootDir=self.rootDir,
+      #                           silent=self.silent, fsd=self.fsd)
+    else:
+      # for boilerplate files
+      download_files_for_codeeval(self.bucket, prefix=self.bprefix, rootDir=self.rootDir, silent=self.silent)
+      # for submission files
+      download_files_for_codeeval(self.bucket, prefix=self.sprefix, rootDir=self.rootDir, silent=self.silent)
 
+  
   def initialize(self):
     """
     It will download the files from the bucket and initialize the detector object
@@ -85,8 +124,8 @@ class CodePlagiarismDetector:
 
     # create the detector object with appropriate params 
     self.detector = CopyDetector(
-      boilerplate_dirs=[Path.home().joinpath(self.rootDir, self.prefix, 'boilerplate').as_posix()],
-      test_dirs=[Path.home().joinpath(self.rootDir, self.prefix, 'submissions').as_posix()],
+      boilerplate_dirs=[Path.home().joinpath(self.rootDir, self.bprefix).as_posix()],
+      test_dirs=[Path.home().joinpath(self.rootDir, self.sprefix).as_posix()],
       noise_t=self.noise_t,
       guarantee_t=self.guarantee_t,
       display_t=self.display_t,
@@ -115,17 +154,17 @@ class CodePlagiarismDetector:
     # split the test files for each student
     # this is to faciliate the scan for every student individually
     test_files_student_dict = defaultdict(list)
-    for file in self.detector.test_files:
-        test_files_student_dict[file.split(self.detector.test_dirs[0])[1].split('/')[1]].append(file)
-    
-    # create the report directory inside the prefix folder in the root directory.
-    reportDir = "Reports"
-    Path.home().joinpath(self.rootDir, self.prefix, reportDir).mkdir(parents=True, exist_ok=True)
+    for test_file in self.detector.test_files:
+      student_id = re.search(r'users/(\d+)/', test_file).group(1)
+      test_files_student_dict[student_id].append(test_file)
+    # TODO: for code eval, we have to take only the latest attempt for each student
+    # create the report directory inside the submission_prefix folder in the root directory.
+    Path.home().joinpath(self.rootDir, self.sprefix, self.reportDir).mkdir(parents=True, exist_ok=True)
 
     print(f"{time.time()-start_time:6.2f}: Beginning code comparison")
     for student, test_files in tqdm(test_files_student_dict.items(), bar_format='   {l_bar}{bar}{r_bar}'):
       result_dict = defaultdict(list)
-      studentReportPath = Path.home().joinpath(self.rootDir, self.prefix, reportDir, f"{student}.json")
+      studentReportPath = Path.home().joinpath(self.rootDir, self.sprefix, self.reportDir, f"{student}.json")
       # if the report has already been generated, for the student, then skip
       if studentReportPath.exists(): continue
       for test_f in test_files:
@@ -166,7 +205,7 @@ class CodePlagiarismDetector:
     print(f"{time.time()-start_time:6.2f}: Code comparison completed")
     # Uploading the files in the reportDir to the bucket
     if not self.silent:
-      print(f'Results saved to {Path.home().joinpath(self.rootDir, self.prefix, reportDir)} folder')
+      print(f'Results saved to {Path.home().joinpath(self.rootDir, self.sprefix, self.reportDir)} folder')
 
 
   # upload the Reports folder to the bucket
@@ -180,7 +219,7 @@ class CodePlagiarismDetector:
     "<prefix>/Reports/<file_name>".
     """
     # upload the files to the bucket
-    report_dir = Path.home().joinpath(self.rootDir, self.prefix, 'Reports')
+    report_dir = Path.home().joinpath(self.rootDir, self.sprefix, self.reportDir)
     # walk through the report directory and get all the report files
     report_files = [f for f in report_dir.rglob('*.json')]
     if len(report_files) == 0:
@@ -192,7 +231,8 @@ class CodePlagiarismDetector:
     start_time = time.time()
     print("\n  0.00: Uploading reports to the bucket")
     for report_file in tqdm(report_files, bar_format='   {l_bar}{bar}{r_bar}'):
-      s3_key = "{}/Reports/{}".format(self.prefix, report_file.name)
+      # prefix already has the forward slash
+      s3_key = "{}{}/{}".format(self.sprefix, self.reportDir, report_file.name)
       self.bucket.upload_file(report_file, s3_key)
     print(f"{time.time()-start_time:6.2f}: Reports uploaded to the bucket")
 

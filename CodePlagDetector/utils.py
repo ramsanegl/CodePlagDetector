@@ -8,6 +8,10 @@ import numpy as np
 import json
 import os
 
+import time
+import random
+import string
+
 
 def get_s3_bucket(bucket_name, region_name='us-east-1'):
   """
@@ -50,6 +54,39 @@ def get_s3_bucket(bucket_name, region_name='us-east-1'):
     logging.error(errorMsg)
     raise s3ConnectionError(errorMsg)
 
+
+def download_files_for_codeeval(bucket, prefix, rootDir='', silent=True):
+  """
+  This is to download files for codeeval. Here, we assume that the boilerplate
+  and the submission paths are different.
+  """
+  for obj in bucket.objects.filter(Prefix=prefix):
+    destFilePath = Path.home().joinpath(rootDir, prefix, obj.key.replace(prefix, ''))
+    download_from_s3(bucket, obj.key, destFilePath, silent=silent)
+
+def download_from_s3(bucket, object_key, destFilePath, silent=True):
+  """
+  This function downloads a file from the S3 bucket to the destFilePath.
+
+  Parameters
+  ----------
+    bucket       : The S3 bucket object
+    object_key   : The key of the object in the bucket
+    destFilePath : The path where the file will be downloaded to. This path should include
+                   the file name as well.
+  Returns
+  -------
+    None
+  """
+  # create all the necessary parent directories if not present
+  Path(destFilePath).parent.mkdir(parents=True, exist_ok=True)
+  if not Path.exists(destFilePath):
+    if not silent:
+      print('Downloading', object_key, ' to ', destFilePath)
+    bucket.download_file(object_key, destFilePath)
+  else:
+    if not silent:
+      print('Already downloaded', object_key)
 
 # download the files
 def download_files_with_prefix(bucket, prefix, rootDir='', silent=True, fsd=True):
@@ -101,6 +138,22 @@ def download_files_with_prefix(bucket, prefix, rootDir='', silent=True, fsd=True
       else:
         if not silent:
           print('Already downloaded', obj.key)
+
+
+def get_random_string(length):
+  """
+  This function generates a random string of given length
+  with timestamp.
+  PARAMETERS
+  ----------
+    length : the length of the random string
+  RETURNS
+  -------
+    timestamp_randomstring : the random string with timestamp
+  """
+  timestamp = time.strftime("%Y%m%d%H%M%S")
+  random_string = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+  return timestamp + '_' + random_string
 
 
 # https://stackoverflow.com/a/57915246
