@@ -12,9 +12,6 @@ import os
 sys.path.append(os.path.expanduser('~/CodePlagDetector'))
 from CodePlagDetector import CodePlagiarismDetector, defaults
 
-DEFAULT_BUCKET_NAME = 'lti-development-bucket'
-DEFAULT_PREFIX = 'CodePlagiarism'
-
 
 def str2bool(v):
   """
@@ -54,9 +51,12 @@ def main():
   parser.add_argument("-b", "--bucket-name", required=True,
                       metavar="BUCKET-NAME", help="name of the bucket where the files are stored"
                       " (default: lti-development-bucket)")
-  parser.add_argument("-p", "--prefix", type=str, required=True,
-                      metavar="PREFIX", help="prefix of the bucket where the submissions and"
-                      " boilerplate files are stored (default: CodePlagiarism)")
+  parser.add_argument("-bp", "--boilerplate-prefix", type=str, required=True,
+                      metavar="BPREFIX", help="prefix of the bucket where the boilerplate files"
+                      " are stored")
+  parser.add_argument("-sp", "--submission-prefix", type=str, required=True,
+                      metavar="SPREFIX", help="prefix of the bucket where the submissions"
+                      " files are stored")
   parser.add_argument("-e", "--extensions", default=defaults.EXTENSIONS,
                       metavar="EXTENSIONS", help="extensions of the files to be compared")
   parser.add_argument("-n", "--noise-threshold", default=defaults.NOISE_THRESHOLD, type=int,
@@ -68,7 +68,7 @@ def main():
   parser.add_argument("-sn", "--same-name-only", default=defaults.SAME_NAME_ONLY,  type=str2bool,
                       metavar="SAME-NAME-ONLY", help="same name only (default: True)")
   parser.add_argument("-fsd", "--fsd", type=str2bool, required=True,
-                      metavar="FSD", help="Full stack assignment (default: True)")
+                      metavar="FSD", help="Full stack assignment")
   parser.add_argument("-s", "--silent", default=True, type=str2bool,
                       metavar="SILENT" ,help="To output logs to terminal")
 
@@ -81,13 +81,14 @@ def main():
   # defining so that we can check in the finally block
   detector = None
   try:
-    detector = CodePlagiarismDetector(args.bucket_name, args.prefix,
-    noise_t=args.noise_threshold, guarantee_t=args.guarantee_threshold,
+    detector = CodePlagiarismDetector(args.bucket_name, bprefix=args.boilerplate_prefix,
+    sprefix=args.submission_prefix, noise_t=args.noise_threshold, guarantee_t=args.guarantee_threshold,
     display_t=args.display_threshold, same_name_only=args.same_name_only,
     fsd=args.fsd, extensions=args.extensions)
     detector.initialize()
     detector.run()
     detector.upload_reports()
+
   except Exception as e:
     raise e
   finally:
