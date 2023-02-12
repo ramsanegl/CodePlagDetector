@@ -159,7 +159,7 @@ def get_random_string(length):
     timestamp_randomstring : the random string with timestamp
   """
   timestamp = time.strftime("%Y%m%d%H%M%S")
-  random_string = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+  random_string = ''.join(random.sample(string.ascii_uppercase + string.digits, k=length))
   return timestamp + '_' + random_string
 
 
