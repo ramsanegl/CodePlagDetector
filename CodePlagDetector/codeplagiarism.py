@@ -51,6 +51,7 @@ class CodePlagiarismDetector:
     """
     Connect to S3 bucket and initialize the detector object with the given params
     """
+    self.bucket_name = bucket_name
     self.sprefix = sprefix
     self.bprefix = bprefix
     self.env = env
@@ -71,7 +72,7 @@ class CodePlagiarismDetector:
     self._validate_fields()
 
     # connect to the S3 bucket
-    self.bucket = get_s3_bucket(bucket_name, self.env)
+    self.bucket = get_s3_bucket(self.bucket_name, self.env)
   
 
   def _validate_fields(self):
