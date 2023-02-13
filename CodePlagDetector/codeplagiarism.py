@@ -78,7 +78,7 @@ class CodePlagiarismDetector:
     """
     validates different input params
     """
-    if self.bucket is None:
+    if self.bucket_name is None:
       raise ValueError("Bucket name cannot be None")
     if self.sprefix is None:
       raise ValueError("Submissions prefix cannot be None")
