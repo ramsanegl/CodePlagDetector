@@ -12,7 +12,7 @@ import time
 import random
 import string
 
-def get_s3_bucket(bucket_name, region_name='us-east-1'):
+def get_s3_bucket(bucket_name, env):
   """
   This function returns the S3 bucket object if the bucket exists and the
   credentials are valid. Otherwise, it returns False.
@@ -32,19 +32,17 @@ def get_s3_bucket(bucket_name, region_name='us-east-1'):
   print("Connecting to S3...", end=' ')
   if bucket_name is None:
     raise NoBucketProvidedError("No bucket provided.")
-  
-  access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
-  access_key_secret = os.environ.get('AWS_SECRET_ACCESS_KEY')
-  if access_key_id is None or access_key_secret is None:
-    raise s3ConnectionError("AWS credentials not provided.")
-  
-  s3 = boto3.resource(
-    service_name='s3',
-    region_name=region_name,
-    aws_access_key_id=access_key_id,
-    aws_secret_access_key=access_key_secret
-  )
-  try:
+  if env == 'development':
+    profile_name = 'cp-development'
+  elif env == 'migration':
+    profile_name = 'cp-migration'
+  elif env == 'production':
+    profile_name = 'cp-production'
+  else:
+    raise ValueError("Invalid environment provided.")
+  try:  
+    session = boto3.Session(profile_name=profile_name)
+    s3 = session.resource('s3')
     s3.meta.client.head_bucket(Bucket=bucket_name)
     print("successful!\n")
     return s3.Bucket(bucket_name)

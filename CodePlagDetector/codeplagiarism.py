@@ -27,6 +27,8 @@ class CodePlagiarismDetector:
     bucket_name    :  The name of the S3 bucket
     sprefix        :  The prefix of where the submission files are stored in the bucket.
     bprefix        :  The prefix of where the boilerplate files are stored in the bucket.
+    env            :  The environment in which the code is running. It can be one of
+                      ['development', 'migration', 'production']
     rootDir        :  The root directory where the files will be downloaded to inside the home directory.
                       Default is CodePlagDetector
     extensions     :  The extensions of the files to be compared. Default is ['.java']
@@ -43,15 +45,15 @@ class CodePlagiarismDetector:
   """
 
 
-  def __init__(self, bucket_name: str, sprefix: str, bprefix:str, rootDir='CodePlagiarism/',
+  def __init__(self, bucket_name: str, sprefix: str, bprefix:str, env:str, rootDir='CodePlagiarism/',
                   extensions = ['.java'], noise_t = 25, guarantee_t = 25,
-                    same_name_only=True, display_t=0.33, silent=True, fsd=False):
+                  same_name_only=True, display_t=0.33, silent=True, fsd=False):
     """
     Connect to S3 bucket and initialize the detector object with the given params
     """
-    self.bucket = get_s3_bucket(bucket_name)
     self.sprefix = sprefix
     self.bprefix = bprefix
+    self.env = env
     # for rootDir, we are adding an additional folder so that we can maintain
     # a separate folder for each scan
     self.rootDir = rootDir + get_random_string(10)
@@ -67,6 +69,9 @@ class CodePlagiarismDetector:
     self.reportDir = "Reports"
 
     self._validate_fields()
+
+    # connect to the S3 bucket
+    self.bucket = get_s3_bucket(bucket_name, self.env)
   
 
   def _validate_fields(self):
@@ -79,6 +84,9 @@ class CodePlagiarismDetector:
       raise ValueError("Submissions prefix cannot be None")
     if self.bprefix is None:
       raise ValueError("Boilerplate prefix cannot be None")
+    if self.env is None or self.env not in ['development', 'migration', 'production']:
+      raise ValueError("Environment cannot be None and must be one of 'development', 'migration' or 'production'")
+    
     # adding the trailing slash if not present
     if self.sprefix[-1] != '/':
       self.sprefix += '/'

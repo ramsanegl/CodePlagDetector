@@ -57,6 +57,8 @@ def main():
   parser.add_argument("-sp", "--submission-prefix", type=str, required=True,
                       metavar="SPREFIX", help="prefix of the bucket where the submissions"
                       " files are stored")
+  parser.add_argument("-env", "--environment", type=str, required=True,
+                      metavar="ENVIRONMENT", help="Which environment is this running on ? development or migration or production ?")
   parser.add_argument("-e", "--extensions", default=defaults.EXTENSIONS,
                       metavar="EXTENSIONS", help="extensions of the files to be compared")
   parser.add_argument("-n", "--noise-threshold", default=defaults.NOISE_THRESHOLD, type=int,
@@ -82,9 +84,10 @@ def main():
   detector = None
   try:
     detector = CodePlagiarismDetector(args.bucket_name, bprefix=args.boilerplate_prefix,
-    sprefix=args.submission_prefix, noise_t=args.noise_threshold, guarantee_t=args.guarantee_threshold,
-    display_t=args.display_threshold, same_name_only=args.same_name_only,
-    fsd=args.fsd, extensions=args.extensions)
+      sprefix=args.submission_prefix, env=args.environment, noise_t=args.noise_threshold,
+      guarantee_t=args.guarantee_threshold, display_t=args.display_threshold,
+      same_name_only=args.same_name_only, fsd=args.fsd, extensions=args.extensions
+    )
     detector.initialize()
     detector.run()
     detector.upload_reports()
