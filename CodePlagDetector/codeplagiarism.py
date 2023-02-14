@@ -257,8 +257,12 @@ class CodePlagiarismDetector:
     
     # closing the s3 connection 
     if self.detector is not None:
-      print('\nClosing the s3 connection...', end=' ')
-      self.bucket.meta.client._endpoint.http_session.close()
-      print('Done', end='\n\n')
+      # print('\nClosing the s3 connection...', end=' ')
+      # closing the s3 connection
+      # self.bucket.meta.client._endpoint.http_session.close()
+      # print('Done', end='\n\n')
+      # we can use this to delete some operations if needed.
+      # keeping it empty for now.
+      pass
       
 
