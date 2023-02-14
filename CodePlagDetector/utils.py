@@ -79,7 +79,7 @@ def filter_files_for_codeeval(bucket, prefix, boilerplate):
     user_latest_attempt = defaultdict(int)
     for obj in bucket.objects.filter(Prefix=prefix):
       # Current folder contains reports as well. We don't want to download those.
-      if obj.key.contains('Reports'): continue
+      if 'Reports' in obj.key: continue
       user_id = re.search(r'users/(\d+)/', obj.key).group(1)
       attempt = int(re.search(r'attempts/(\d+)/', obj.key).group(1))
       # if this is the latest attempt, then replace the file for the user.
