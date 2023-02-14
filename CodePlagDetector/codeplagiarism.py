@@ -118,13 +118,10 @@ class CodePlagiarismDetector:
       # download_files_with_prefix(self.bucket, prefix=self.prefix, rootDir=self.rootDir,
       #                           silent=self.silent, fsd=self.fsd)
     else:
-      # for boilerplate files
-      download_files_for_codeeval(self.bucket, prefix=self.bprefix, rootDir=self.rootDir, silent=self.silent)
-      # for submission files
+      download_files_for_codeeval(self.bucket, prefix=self.bprefix, rootDir=self.rootDir, silent=self.silent, boilerplate=True)
       download_files_for_codeeval(self.bucket, prefix=self.sprefix, rootDir=self.rootDir, silent=self.silent)
 
   
-
   def initialize(self):
     """
     It will download the files from the bucket and initialize the detector object
@@ -167,7 +164,6 @@ class CodePlagiarismDetector:
     for test_file in self.detector.test_files:
         student_id = re.search(r'users/(\d+)/', test_file).group(1)
         test_files_student_dict[student_id].append(test_file)
-    # TODO: for code eval, we have to take only the latest attempt for each student
     
     # create the report directory inside the prefix folder in the root directory.
     if not Path(os.path.expanduser('~')).joinpath(self.rootDir, self.sprefix, self.reportDir).exists():

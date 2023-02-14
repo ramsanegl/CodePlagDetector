@@ -1,3 +1,4 @@
+from collections import defaultdict
 import boto3
 from pathlib import Path
 import zipfile
@@ -11,6 +12,8 @@ import os
 import time
 import random
 import string
+import re
+from tqdm import tqdm
 
 def get_s3_bucket(bucket_name, env):
   """
@@ -52,14 +55,38 @@ def get_s3_bucket(bucket_name, env):
     raise s3ConnectionError(errorMsg)
 
 
-def download_files_for_codeeval(bucket, prefix, rootDir='', silent=True):
+def download_files_for_codeeval(bucket, prefix, rootDir='', silent=True, boilerplate=False):
   """
   This is to download files for codeeval. Here, we assume that the boilerplate
   and the submission paths are different.
   """
-  for obj in bucket.objects.filter(Prefix=prefix):
-    destFilePath = Path(os.path.expanduser('~')).joinpath(rootDir, prefix, obj.key.replace(prefix, ''))
-    download_from_s3(bucket, obj.key, destFilePath, silent=silent)
+  # keep only the latest attempt 
+  ce_files = filter_files_for_codeeval(bucket, prefix, boilerplate)
+  print("\nDownloading {} files...".format('boilerplate' if boilerplate else 'submission'))
+  for ce_file in tqdm(ce_files, bar_format='   {l_bar}{bar}{r_bar}'):
+    destFilePath = Path(os.path.expanduser('~')).joinpath(rootDir, prefix, ce_file.replace(prefix, ''))
+    download_from_s3(bucket, ce_file, destFilePath)
+  print("All files downloaded!\n")
+
+
+# filter_files_for_codeeval - keep only the latest attempt
+def filter_files_for_codeeval(bucket, prefix, boilerplate):
+  if boilerplate:
+    files = [obj.key for obj in list(iter(bucket.objects.filter(Prefix=prefix)))]
+  else:
+    # keeep only the latest attempt
+    files_dict = defaultdict(str)
+    user_latest_attempt = defaultdict(int)
+    for obj in bucket.objects.filter(Prefix=prefix):
+      user_id = re.search(r'users/(\d+)/', obj.key).group(1)
+      attempt = int(re.search(r'attempts/(\d+)/', obj.key).group(1))
+      # if this is the latest attempt, then replace the file for the user.
+      if attempt > user_latest_attempt[user_id]:
+        user_latest_attempt[user_id] = attempt
+        files_dict[user_id] = obj.key
+    
+    files = list(files_dict.values())
+  return files
 
 
 def download_from_s3(bucket, object_key, destFilePath, silent=True):
