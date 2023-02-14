@@ -35,9 +35,9 @@ def get_s3_bucket(bucket_name, env):
   if env == 'development':
     profile_name = 'cp-development'
   elif env == 'migration':
-    profile_name = 'cp-migration'
+    profile_name = None
   elif env == 'production':
-    profile_name = 'cp-production'
+    profile_name = None
   else:
     raise ValueError("Invalid environment provided.")
   try:  
