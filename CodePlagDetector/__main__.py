@@ -59,7 +59,7 @@ def main():
                       " files are stored")
   parser.add_argument("-env", "--environment", type=str, required=True,
                       metavar="ENVIRONMENT", help="Which environment is this running on ? development or migration or production ?")
-  parser.add_argument("-e", "--extensions", default=defaults.EXTENSIONS,
+  parser.add_argument("-ext", "--extensions", default=defaults.EXTENSIONS,
                       metavar="EXTENSIONS", help="extensions of the files to be compared")
   parser.add_argument("-n", "--noise-threshold", default=defaults.NOISE_THRESHOLD, type=int,
                       metavar="NOISE-THRESHOLD", help="noise threshold (default: 25)")

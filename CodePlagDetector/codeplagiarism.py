@@ -108,7 +108,7 @@ class CodePlagiarismDetector:
       raise NoFilesFoundError(errorMsg)
   
     if len(list(self.bucket.objects.filter(Prefix=self.bprefix).limit(1))) == 0:
-      errorMsg = "No files found in the bucket with prefix: {}".format(self.sprefix)
+      errorMsg = "No files found in the bucket with prefix: {}".format(self.bprefix)
       logging.error(errorMsg)
       raise NoFilesFoundError(errorMsg)
 
