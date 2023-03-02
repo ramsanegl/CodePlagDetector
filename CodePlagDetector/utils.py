@@ -15,6 +15,8 @@ import string
 import re
 from tqdm import tqdm
 
+import requests
+
 def get_s3_bucket(bucket_name, env):
   """
   This function returns the S3 bucket object if the bucket exists and the
@@ -55,13 +57,13 @@ def get_s3_bucket(bucket_name, env):
     raise s3ConnectionError(errorMsg)
 
 
-def download_files_for_codeeval(bucket, prefix, rootDir='', silent=True, boilerplate=False):
+def download_files_for_codeeval(bucket, prefix, extensions, rootDir='', silent=True, boilerplate=False):
   """
   This is to download files for codeeval. Here, we assume that the boilerplate
   and the submission paths are different.
   """
   # keep only the latest attempt 
-  ce_files = filter_files_for_codeeval(bucket, prefix, boilerplate)
+  ce_files = filter_files_for_codeeval(bucket, prefix, extensions, boilerplate)
   print("\nDownloading {} files...".format('boilerplate' if boilerplate else 'submission'))
   for ce_file in tqdm(ce_files, bar_format='   {l_bar}{bar}{r_bar}'):
     destFilePath = Path(os.path.expanduser('~')).joinpath(rootDir, prefix, ce_file.replace(prefix, ''))
@@ -70,9 +72,16 @@ def download_files_for_codeeval(bucket, prefix, rootDir='', silent=True, boilerp
 
 
 # filter_files_for_codeeval - keep only the latest attempt
-def filter_files_for_codeeval(bucket, prefix, boilerplate):
+def filter_files_for_codeeval(bucket, prefix, extensions, boilerplate):
+  """ 
+  Filter the files to download. We can keep the custom logic to filter the files.
+  For now, we are just downloading the files with the given extensions.
+  """
   if boilerplate:
-    files = [obj.key for obj in list(iter(bucket.objects.filter(Prefix=prefix)))]
+    files = []
+    for obj in list(iter(bucket.objects.filter(Prefix=prefix))):
+      if extensions != ['*'] and Path(obj.key).suffix not in extensions: continue
+      files.append(obj.key)
   else:
     # keeep only the latest attempt
     files_dict = defaultdict(str)
@@ -80,6 +89,8 @@ def filter_files_for_codeeval(bucket, prefix, boilerplate):
     for obj in bucket.objects.filter(Prefix=prefix):
       # Current folder contains reports as well. We don't want to download those.
       if 'Reports' in obj.key: continue
+      # keep only the files with the given extensions
+      if extensions != ['*'] and Path(obj.key).suffix not in extensions: continue
       user_id = re.search(r'users/(\d+)/', obj.key).group(1)
       attempt = int(re.search(r'attempts/(\d+)/', obj.key).group(1))
       # if this is the latest attempt, then replace the file for the user.
@@ -189,6 +200,26 @@ def get_random_string(length):
   random_string = ''.join(random.sample(string.ascii_uppercase + string.digits, k=length))
   return timestamp + '_' + random_string
 
+def make_request(url, req_type='GET', data=None):
+  """
+  This function makes a request to the given url and returns the response.
+
+  PARAMETERS
+  ----------
+    url : the url to make the request to.
+    type : the type of request to make. Default is GET
+    data : the data to send with the request. Default is None
+  RETURNS
+  -------
+    response : the response from the url
+  """
+  if req_type == 'GET':
+    res = requests.get(url)
+  elif req_type == 'UPDATE':
+    res = requests.patch(url, json=data, headers={'Content-Type': 'application/json'})
+  if res.status_code != 200:
+    raise Exception("Request {} failed with status code: {}".format(url, res.status_code))
+  return res.json()
 
 # https://stackoverflow.com/a/57915246
 # encoder to convert numpy types to python types befpre writing to the json file
