@@ -25,7 +25,7 @@ class CodePlagiarismDetector:
 
   PARAMETERS
   ----------
-    scanId         :  The scanID in the database
+    scan_id         :  The scan_id in the database
     bucket_name    :  The name of the S3 bucket
     sprefix        :  The prefix of where the submission files are stored in the bucket.
     bprefix        :  The prefix of where the boilerplate files are stored in the bucket.
@@ -51,13 +51,13 @@ class CodePlagiarismDetector:
   """
 
 
-  def __init__(self, scanID: int, bucket_name: str, sprefix: str, bprefix:str, env:str, users_to_scan: list or None,
+  def __init__(self, scan_id: int, bucket_name: str, sprefix: str, bprefix:str, env:str, users_to_scan: list or None,
                   rootDir='CodePlagiarism/', extensions = ['*'], noise_t = 25, guarantee_t = 25,same_name_only=True,
                   display_t=0.33, silent=True, fsd=False, update_frequency=5, update_url=None):
     """
     Connect to S3 bucket and initialize the detector object with the given params
     """
-    self.scanID = scanID
+    self.scan_id = scan_id
     self.bucket_name = bucket_name
     self.sprefix = sprefix
     self.bprefix = bprefix
@@ -65,7 +65,7 @@ class CodePlagiarismDetector:
     self.users_to_scan = users_to_scan
     # for rootDir, we are adding an additional folder so that we can maintain
     # a separate folder for each scan
-    self.rootDir = rootDir + str(scanID) + "/"
+    self.rootDir = rootDir + str(scan_id) + "/"
 
     self.noise_t = noise_t
     self.guarantee_t = guarantee_t
@@ -89,7 +89,7 @@ class CodePlagiarismDetector:
     """
     validates different input params
     """
-    if self.scanID is None:
+    if self.scan_id is None:
       raise ValueError("Scan ID cannot be None")
     if self.bucket_name is None:
       raise ValueError("Bucket name cannot be None")
@@ -144,7 +144,7 @@ class CodePlagiarismDetector:
     """
     # download the files from the bucket
     self.download_files()
-    make_request(self.update_url, 'UPDATE', data={'scanID': self.scanID, 'status': 'DOWNLOADED'})
+    make_request(self.update_url, 'UPDATE', data={'scan_id': self.scan_id, 'status': 'DOWNLOADED'})
 
     # create the detector object with appropriate params 
     self.detector = CopyDetector(
@@ -192,14 +192,14 @@ class CodePlagiarismDetector:
             final_test_files_student_dict[student] = test_files
     
     # create the report directory inside the prefix folder in the root directory.
-    if not Path(os.path.expanduser('~')).joinpath(self.rootDir, self.sprefix, self.reportDir, str(self.scanID)).exists():
-      Path(os.path.expanduser('~')).joinpath(self.rootDir, self.sprefix, self.reportDir, str(self.scanID)).mkdir(parents=True)
+    if not Path(os.path.expanduser('~')).joinpath(self.rootDir, self.sprefix, self.reportDir, str(self.scan_id)).exists():
+      Path(os.path.expanduser('~')).joinpath(self.rootDir, self.sprefix, self.reportDir, str(self.scan_id)).mkdir(parents=True)
 
     user_reports = {}  # used to store the user_ids that we wish to update in between the scan.
     print("{:6.2f}: Beginning code comparison".format(time.time()-start_time))
     for student, test_files in tqdm(final_test_files_student_dict.items(), bar_format='   {l_bar}{bar}{r_bar}'):
       result_dict = {} # used to store the results for this student
-      studentReportPath = Path(os.path.expanduser('~')).joinpath(self.rootDir, self.sprefix, self.reportDir, str(self.scanID), "{}.json".format(student))
+      studentReportPath = Path(os.path.expanduser('~')).joinpath(self.rootDir, self.sprefix, self.reportDir, str(self.scan_id), "{}.json".format(student))
       # if the report has already been generated, for the student, then skip
       if studentReportPath.exists(): continue
       for test_f in test_files:
@@ -283,16 +283,20 @@ class CodePlagiarismDetector:
       print("Uploading {} reports to the bucket".format(len(user_reports)))
     for student, report_file in user_reports.items():
       # prefix already has the forward slash
-      s3_key = "{}{}/{}/{}".format(self.sprefix, self.reportDir, str(self.scanID), Path(report_file).name)
-      if not self.silent: print("Uploading {} to {}".format(s3_key, self.bucket_name))
-      self.bucket.meta.client.upload_file(report_file, self.bucket.name, s3_key)
-      # update the user_report
-      final_reports[student] = s3_key
+      if report_file:
+        s3_key = "{}{}/{}/{}".format(self.sprefix, self.reportDir, str(self.scan_id), Path(report_file).name)
+        if not self.silent: print("Uploading {} to {}".format(s3_key, self.bucket_name))
+        self.bucket.meta.client.upload_file(report_file, self.bucket.name, s3_key)
+        # update the user_report
+        final_reports[student] = s3_key
+      else:
+        final_reports[student] = ''
     # update the server if specified
     if update:
       data = {
-        'scanID': self.scanID,
-        'reports': final_reports
+        'scan_id': self.scan_id,
+        'reports': final_reports,
+        'status': 'REPORT_UPDATE'
       }
       make_request(self.update_url, 'UPDATE', data=data)
 

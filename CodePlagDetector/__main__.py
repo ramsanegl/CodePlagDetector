@@ -40,7 +40,7 @@ def main():
   # defining so that we can check in the finally block
   detector = None
   try:
-    detector = CodePlagiarismDetector(params['scanID'], params['bucket_name'], sprefix=params['submission_prefix'],
+    detector = CodePlagiarismDetector(params['scan_id'], params['bucket_name'], sprefix=params['submission_prefix'],
       bprefix=params['boilerplate_prefix'], env=params['environment'], users_to_scan=params['users_to_scan'],
       extensions=extensions, noise_t=noise_threshold,  guarantee_t=guarantee_threshold, display_t=display_threshold,
       silent=silent, same_name_only=params['same_name_only'], fsd=fsd, update_frequency=params['update_frequency'],
@@ -48,13 +48,13 @@ def main():
     )
     detector.initialize()
     
-    utils.make_request(detector.update_url, 'UPDATE', data={'scanID': detector.scanID, 'status': 'STARTED'})
+    utils.make_request(detector.update_url, 'UPDATE', data={'scan_id': detector.scan_id, 'status': 'STARTED'})
     detector.run()
-    utils.make_request(detector.update_url, 'UPDATE', data={'scanID': detector.scanID, 'status': 'COMPLETED'})
+    utils.make_request(detector.update_url, 'UPDATE', data={'scan_id': detector.scan_id, 'status': 'COMPLETED'})
   except Exception as e:
     # if it failed, then update the status
     utils.make_request(args.update_url, 'UPDATE', data={
-      'scanID': params['scanID'], 'status': 'FAILED', 'error': traceback.format_exc()
+      'scan_id': params['scan_id'], 'status': 'FAILED', 'error': traceback.format_exc()
     })
   finally:
     if detector:
