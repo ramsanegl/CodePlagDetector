@@ -18,28 +18,28 @@ def main():
   """
   Main function for parsing command line arguments and running the detector.
   """
-  parser = argparse.ArgumentParser(
-    prog="CodePlagDetector", formatter_class=argparse.ArgumentDefaultsHelpFormatter
-  )
-  parser.add_argument("-details-api", "--details-url", type=str, required=True)
-  parser.add_argument("-update-url", "--update-url", type=str, required=True)
-
-  args = parser.parse_args()
-
-  # make request and get the arguments
-  params = utils.make_request(args.details_url)
-  # form the other arguments
-  noise_threshold = params.get('noise_threshold', defaults.NOISE_THRESHOLD)
-  guarantee_threshold = params.get('guarantee_threshold', defaults.GUARANTEE_THRESHOLD)
-  display_threshold = params.get('display_threshold', defaults.DISPLAY_THRESHOLD)
-  fsd = params.get('submission_type') == 'fsd'
-  extensions = params.get('extensions', '*').split(',')
-  silent = params.get('silent', True)
-
-
-  # defining so that we can check in the finally block
-  detector = None
   try:
+    parser = argparse.ArgumentParser(
+      prog="CodePlagDetector", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument("-details-api", "--details-url", type=str, required=True)
+    parser.add_argument("-update-url", "--update-url", type=str, required=True)
+
+    args = parser.parse_args()
+
+    # make request and get the arguments
+    params = utils.make_request(args.details_url)
+    # form the other arguments
+    noise_threshold = params.get('noise_threshold', defaults.NOISE_THRESHOLD)
+    guarantee_threshold = params.get('guarantee_threshold', defaults.GUARANTEE_THRESHOLD)
+    display_threshold = params.get('display_threshold', defaults.DISPLAY_THRESHOLD)
+    fsd = params.get('submission_type') == 'fsd'
+    extensions = params.get('extensions', '*').split(',')
+    silent = params.get('silent', True)
+
+
+    # defining so that we can check in the finally block
+    detector = None
     detector = CodePlagiarismDetector(params['scan_id'], params['bucket_name'], sprefix=params['submission_prefix'],
       bprefix=params['boilerplate_prefix'], env=params['environment'], users_to_scan=params['users_to_scan'],
       extensions=extensions, noise_t=noise_threshold,  guarantee_t=guarantee_threshold, display_t=display_threshold,
