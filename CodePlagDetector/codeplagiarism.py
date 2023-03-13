@@ -15,7 +15,7 @@ from .utils import (download_files_for_codeeval,download_files_with_prefix,
   get_random_string, get_s3_bucket, NumpyEncoder, make_request
 )
 from .exceptions import NoFilesFoundError
-
+from . import defaults
 
 
 class CodePlagiarismDetector:
@@ -52,8 +52,8 @@ class CodePlagiarismDetector:
 
 
   def __init__(self, scan_id: int, bucket_name: str, sprefix: str, bprefix:str, env:str, users_to_scan: list or None,
-                  rootDir='CodePlagiarism/', extensions = ['*'], noise_t = 25, guarantee_t = 25,same_name_only=True,
-                  display_t=0.33, silent=True, fsd=False, update_frequency=5, update_url=None):
+                  rootDir='CodePlagiarism/', extensions = ['*'], noise_t = defaults.NOISE_THRESHOLD, guarantee_t = defaults.GUARANTEE_THRESHOLD,
+                  same_name_only=True, display_t=0.33, silent=True, fsd=False, update_frequency=5, update_url=None):
     """
     Connect to S3 bucket and initialize the detector object with the given params
     """
@@ -219,7 +219,7 @@ class CodePlagiarismDetector:
             or (Path(test_f).suffix != Path(ref_f).suffix)
           ):
             continue
-
+          
           # get the results
           hashes_overlap1, token_overlap, (sim1, sim2), (slices1, slices2) = compare_files(
               self.detector.file_data[test_f], self.detector.file_data[ref_f],
@@ -243,7 +243,7 @@ class CodePlagiarismDetector:
           score = len(copied_hashes)/len(self.detector.file_data[test_f].hashes)
           result_dict[relative_test_f_path] = {
             'score': score,
-            'results': results
+            'results': sorted(results, key=lambda x: x['overlap'], reverse=True)
           }
       
       # Once all the test files are scanned, then save the report to the disk
@@ -251,12 +251,14 @@ class CodePlagiarismDetector:
         with open(studentReportPath.as_posix(), 'w') as f:
           json.dump(result_dict, f, indent=2, cls=NumpyEncoder)
         # Update the user_reports with the path to the report.
-        # TODO: user result_dict to compute score for each test file and add
-        # that in the user_reports. Make the changes in the update api
         # accordingly.
-        user_reports[student] = studentReportPath.as_posix()
+        # store the user scores in the dictionary of test_files and the score as key
+        user_reports[student] = {
+          'file': studentReportPath.as_posix(),
+          'scores' : { k: v['score'] for k, v in result_dict.items() }
+        } 
       else:
-        user_reports[student] = ''
+        user_reports[student] = {}
       # depending on the update_frequency, upload the reports and update the lti
       if len(user_reports) == self.update_frequency:
         self.upload_reports(user_reports, update=True)
@@ -281,22 +283,25 @@ class CodePlagiarismDetector:
     final_reports = {}
     if not self.silent:
       print("Uploading {} reports to the bucket".format(len(user_reports)))
-    for student, report_file in user_reports.items():
+    for student, report in user_reports.items():
       # prefix already has the forward slash
-      if report_file:
-        s3_key = "{}{}/{}/{}".format(self.sprefix, self.reportDir, str(self.scan_id), Path(report_file).name)
+      if report:
+        s3_key = "{}{}/{}/{}".format(self.sprefix, self.reportDir, str(self.scan_id), Path(report['file']).name)
         if not self.silent: print("Uploading {} to {}".format(s3_key, self.bucket_name))
-        self.bucket.meta.client.upload_file(report_file, self.bucket.name, s3_key)
+        self.bucket.meta.client.upload_file(report['file'], self.bucket.name, s3_key)
         # update the user_report
-        final_reports[student] = s3_key
+        final_reports[student] = {
+          's3_key': s3_key,
+          'scores': report['scores']
+          }
       else:
-        final_reports[student] = ''
+        final_reports[student] = {}
     # update the server if specified
     if update:
       data = {
+        'status': 'REPORT_UPDATE',
         'scan_id': self.scan_id,
-        'reports': final_reports,
-        'status': 'REPORT_UPDATE'
+        'reports': final_reports
       }
       make_request(self.update_url, 'UPDATE', data=data)
 
